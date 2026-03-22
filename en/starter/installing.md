@@ -1,4 +1,60 @@
----
+--const express = require("express");
+const fetch = require("node-fetch");
+const session = require("express-session");
+
+const app = express();
+const PORT = 3000;
+
+// Replace with your actual App ID and redirect URI
+const APP_ID = "32Mm0f7hVzUo4t2eSJCBD";
+const REDIRECT_URI = "https://MRdestroyer.com/callback";
+
+app.use(session({
+  secret: "supersecretkey",
+  resave: false,
+  saveUninitialized: true
+}));
+
+// Step 1: Login route
+app.get("/login", (req, res) => {
+  const oauthUrl = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=EN&brand=deriv&redirect_uri=${REDIRECT_URI}`;
+  res.redirect(oauthUrl);
+});
+
+// Step 2: Callback route
+app.get("/callback", async (req, res) => {
+  const code = req.query.code;
+
+  if (!code) return res.send("No authorization code received.");
+
+  const response = await fetch("https://oauth.deriv.com/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=authorization_code&code=${code}&redirect_uri=${REDIRECT_URI}&client_id=${APP_ID}`
+  });
+
+  const data = await response.json();
+  req.session.accessToken = data.access_token;
+
+  res.send("Login successful! You can now call /accounts to see your data.");
+});
+
+// Step 3: Example API call
+app.get("/accounts", async (req, res) => {
+  if (!req.session.accessToken) return res.send("Not logged in.");
+
+  const response = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+    headers: { Authorization: `Bearer ${req.session.accessToken}` }
+  });
+
+  const accounts = await response.json();
+  res.json(accounts);
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
+
 layout: page
 title: Installing Express
 description: Learn how to install Express.js in your Node.js environment, including setting up your project directory and managing dependencies with npm.
